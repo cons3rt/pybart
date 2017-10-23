@@ -1,0 +1,11 @@
+{
+  "password": "my_password",
+  "name": "my_username",
+  "projects": [
+    {
+      "project_roles": null,
+      "name": "My Project",
+      "rest_key": "My project ReST API token"
+    }
+  ]
+}

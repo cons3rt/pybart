@@ -1,0 +1,48 @@
+{
+  "active":"true",
+  "name":"REPLACE_VIRTUALIZATION_REALM_NAME",
+  "description":"Static cloudspace for CI2",
+  "virtualizationRealmType":"AMAZON_WEB_SERVICES_DRIVER",
+  "maximumVirtualMachines":10,
+  "accessPoint":"52.6.77.70",
+  "properties":[
+    {
+      "key": "aws.region",
+      "value":"us-east-1"
+    },
+    {
+      "key": "aws.vpcId",
+      "value": "vpc-0146c266"
+    },
+    {
+      "key": "aws.ownerId",
+      "value": "823765613917"
+    },
+    {
+      "key": "aws.vpcSubnetName",
+      "value":"private-cons3rt-net"
+    },
+    {
+      "key": "aws.securityGroupName",
+      "value":"cons3rt-sut-sg"
+    },
+    {
+      "key": "aws.userKeyName",
+      "value":"CI2_Static_Cloudspace-userkeypair"
+    },
+    {
+      "key": "aws.accessKey",
+      "value": "REPLACE_AWS_ACCESS_KEY_ID"
+    },
+    {
+      "key": "aws.secretAccessKey",
+      "value": "REPLACE_AWS_SECRET_ACCESS_KEY"
+    }
+  ],
+  "remoteAccessConfig":
+  {
+    "remoteAccessPort":"9443",
+    "guacIpAddress":"172.16.3.250",
+    "remoteAccessHost":"52.6.77.70"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "subtype":"awsCloud",
+  "name": "Jackpine AWS N. Virginia Region",
+  "description": "A Cloud for deploying to the AWS us-east-1 region in the Jackpine account.",
+  "natInstanceType":"t2.nano",
+  "ownerId":"823765613917",
+  "regionName":"us-east-1",
+  "natAmiId":"ami-68115b02",
+  "accessKey":"REPLACE_AWS_ACCESS_KEY_ID",
+  "secretAccessKey":"REPLACE_AWS_SECRET_ACCESS_KEY",
+
+  "externalIpAddresses":
+  [
+    "52.70.108.238",
+    "52.3.38.247",
+    "52.0.26.78",
+    "52.6.185.38",
+    "52.6.77.70",
+    "52.3.4.218",
+    "52.3.4.218",
+    "52.70.9.38"
+  ]
+}

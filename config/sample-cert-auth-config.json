@@ -1,0 +1,10 @@
+{
+  "cert": "path_to_pem_file",
+  "projects": [
+    {
+      "project_roles": null,
+      "name": "My Project",
+      "rest_key": "My project ReST API token"
+    }
+  ]
+}
