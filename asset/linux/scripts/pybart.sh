@@ -17,20 +17,20 @@ source /etc/bashrc
 ######################### GLOBAL VARIABLES #########################
 
 # Git Server Domain Name
-gitServerDomainName="git.jackpinetech.com"
+gitServerDomainName="github.com"
 
 # pyBART GIT clone URL
-pybartGitUrl="git@${gitServerDomainName}:jackpine/pyBART.git"
+pybartGitUrl="git@${gitServerDomainName}:cons3rt/pybart.git"
 
 # Default GIT branch
-defaultGitBranch="develop"
+defaultGitBranch="master"
 
 # Root directory for pyBART src and other files
 pybartRoot="/root/.pycons3rt"
 
 # Defines the directory where cons3rt-deploying-cons3rt source code will
 # be staged and installed to.
-pybartSrcDir="${pybartRoot}/src/pyBART"
+pybartSrcDir="${pybartRoot}/src/pybart"
 
 # Deployment properties filename
 deploymentPropsFile="deployment-properties.sh"
