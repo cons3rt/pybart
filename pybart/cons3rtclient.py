@@ -103,6 +103,39 @@ class Cons3rtClient:
             msg = '{n}: The HTTP response contains a bad status code:\n{e}'.format(n=ex.__class__.__name__, e=str(ex))
             raise Cons3rtClientError, msg, trace
 
+    def add_user_to_project(self, username, project_id):
+        """Adds the username to the project ID
+
+        :param username: (str) CONS3RT username
+        :param project_id: (int) project ID
+        :return: None
+        :raises: Cons3rtClientError
+        """
+        if self.user is None:
+            raise Cons3rtClientError('Cons3rtClient was initialized with an invalid user')
+        if self.base is None:
+            raise Cons3rtClientError('Cons3rtClient was initialized with an invalid base')
+
+        # Set the target URL
+        target = 'projects/{i}/members/?username={u}'.format(i=str(project_id), u=username)
+
+        # Add the user to the project
+        try:
+            response = self.http_client.http_put(rest_user=self.user, target=target)
+        except Cons3rtClientError:
+            _, ex, trace = sys.exc_info()
+            msg = '{n}: Unable to add username {u} to project ID: {i}:\n{e}'.format(
+                n=ex.__class__.__name__, u=username, i=str(project_id), e=str(ex))
+            raise Cons3rtClientError, msg, trace
+
+        # Check the response
+        try:
+            self.http_client.parse_response(response=response)
+        except Cons3rtClientError:
+            _, ex, trace = sys.exc_info()
+            msg = '{n}: The HTTP response contains a bad status code:\n{e}'.format(n=ex.__class__.__name__, e=str(ex))
+            raise Cons3rtClientError, msg, trace
+
     def create_scenario(self, scenario_file):
         """Creates a Scenario using info in the provided JSON file
 

@@ -1180,6 +1180,39 @@ class Bart:
             raise BartError, msg, trace
         log.info('Successfully created User from file: {f}'.format(f=json_file))
 
+    def add_user_to_project(self, username, project_id):
+        """Add the username to the specified project ID
+
+        :param username: (str) CONS3RT username to add to the project
+        :param project_id: (int) ID of the project
+        :return: None
+        :raises: BartError
+        """
+        log = logging.getLogger(self.cls_logger + '.add_user_to_project')
+
+        # Ensure the username arg is a string
+        if not isinstance(username, basestring):
+            msg = 'The username arg must be a string'
+            raise BartError(msg)
+
+        # Ensure the project_id is an int
+        if not isinstance(project_id, int):
+            try:
+                project_id = int(project_id)
+            except ValueError:
+                msg = 'project_id arg must be an Integer, found: {t}'.format(t=project_id.__class__.__name__)
+                raise BartError(msg)
+
+        # Attempt to add the user to the project
+        try:
+            self.cons3rt_client.add_user_to_project(username=username, project_id=project_id)
+        except Cons3rtClientError:
+            _, ex, trace = sys.exc_info()
+            msg = '{n}: Unable to add username {u} to project ID: {i}\n{e}'.format(
+                n=ex.__class__.__name__, u=username, i=str(project_id), e=str(ex))
+            raise BartError, msg, trace
+        log.info('Successfully added username {u} to project ID: {i}'.format(i=str(project_id), u=username))
+
     def create_scenario_from_json(self, json_file):
         """Creates a scenario using data from a JSON file
 
@@ -1251,7 +1284,7 @@ class Bart:
         """
         log = logging.getLogger(self.cls_logger + '.release_deployment_run')
 
-        # Ensure the vr_id is an int
+        # Ensure the dr_id is an int
         if not isinstance(dr_id, int):
             try:
                 dr_id = int(dr_id)
@@ -1260,7 +1293,7 @@ class Bart:
                 raise BartError(msg)
 
         # Attempt to release the DR
-        log.info('Attempting to release deployment run ID: {i}'.format(i=str(dr_id)))
+        log.debug('Attempting to release deployment run ID: {i}'.format(i=str(dr_id)))
         try:
             result = self.cons3rt_client.release_deployment_run(dr_id=dr_id)
         except Cons3rtClientError:
@@ -1353,6 +1386,48 @@ class Bart:
                 log.warn('BartError: Unable to delete run ID: {i}\n{e}'.format(i=str(dr_id), e=str(ex)))
                 continue
         log.info('Completed deleting inactive DRs in VR ID: {i}'.format(i=str(vr_id)))
+
+    def release_active_runs_in_virtualization_realm(self, vr_id):
+        """Releases all active runs in a virtualization realm
+
+        :param vr_id: (int) virtualization realm ID
+        :return: None
+        """
+        log = logging.getLogger(self.cls_logger + '.release_active_runs_in_virtualization_realm')
+
+        # Ensure the vr_id is an int
+        if not isinstance(vr_id, int):
+            try:
+                vr_id = int(vr_id)
+            except ValueError:
+                msg = 'vr_id arg must be an Integer, found: {t}'.format(t=vr_id.__class__.__name__)
+                raise BartError(msg)
+
+        # List active runs in the virtualization realm
+        try:
+            drs = self.list_deployment_runs_in_virtualization_realm(vr_id=vr_id, search_type='SEARCH_ACTIVE')
+        except BartError:
+            _, ex, trace = sys.exc_info()
+            msg = 'BartError: There was a problem listing active deployment runs in VR ID: {i}\n{e}'.format(
+                i=str(vr_id), e=str(ex))
+            raise BartError, msg, trace
+
+        # Release or cancel each active run
+        log.debug('Found active runs in VR ID {i}:\n{r}'.format(i=str(vr_id), r=str(drs)))
+        log.info('Attempting to release or cancel active runs from VR ID: {i}'.format(i=str(vr_id)))
+        for dr in drs:
+            try:
+                dr_id = dr['id']
+            except KeyError:
+                log.warn('Unable to determine the run ID from run: {r}'.format(r=str(dr)))
+                continue
+            try:
+                self.release_deployment_run(dr_id=dr_id)
+            except BartError:
+                _, ex, trace = sys.exc_info()
+                log.warn('BartError: Unable to release or cancel run ID: {i}\n{e}'.format(i=str(dr_id), e=str(ex)))
+                continue
+        log.info('Completed releasing or cancelling active DRs in VR ID: {i}'.format(i=str(vr_id)))
 
     def delete_inactive_run(self, dr_id):
         """Deletes an inactive run
