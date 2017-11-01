@@ -78,7 +78,7 @@ class Bart:
             project_tokens = self.config_data['projects']
         except KeyError:
             _, ex, trace = sys.exc_info()
-            msg = 'Element [ projects] is required but not found in the config data, at least 1 project token must ' \
+            msg = 'Element [projects] is required but not found in the config data, at least 1 project token must ' \
                   'be configured\n{e}'.format(e=str(ex))
             raise BartError, msg, trace
 
@@ -131,6 +131,70 @@ class Bart:
             log.info('Set project to {p} and ReST API token to {t} for user: {u}'.format(
                 p=project_name, t=token, u=username))
 
+    def set_project_token(self, project_name):
+        """Sets the project name and token to the specified project name.  This project name
+        must already exist in config data
+
+        :param project_name: (str) name of the project
+        :return: None
+        :raises: BartError
+        """
+        log = logging.getLogger(self.cls_logger + '.set_project_token')
+
+        # Ensure the project_name is a string
+        if not isinstance(project_name, basestring):
+            raise BartError('The arg project_name must be a string, found: {t}'.format(
+                t=project_name.__class__.__name__))
+
+        # Attempt to find a username in the config data
+        username = None
+        try:
+            username = self.config_data['name']
+        except KeyError:
+            _, ex, trace = sys.exc_info()
+            msg = 'Element [username] is required but not found in the config data\n{e}'.format(e=str(ex))
+            raise BartError, msg, trace
+
+        # Ensure at least one token is found
+        try:
+            projects = self.config_data['projects']
+        except KeyError:
+            _, ex, trace = sys.exc_info()
+            msg = 'Element [projects] is required but not found in the config data, at least 1 project token must ' \
+                  'be configured\n{e}'.format(e=str(ex))
+            raise BartError, msg, trace
+
+        # Loop through the projects until the project matches
+        token = None
+        for project in projects:
+            try:
+                if project['name'] == project_name:
+                    log.info('Found an entry in config data for project name: {p}'.format(p=project_name))
+                    token = project['rest_key']
+            except KeyError:
+                log.warn('Config data is invalid: {d}'.format(d=str(project)))
+                continue
+
+        # Raise an error if the token was not found
+        if token is None:
+            raise BartError('Token not found for username {u} in project: {p}'.format(u=username, p=project_name))
+
+        # Assign the current user using the first Project and Token listed
+        self.user = RestUser(token=token, username=username, project=project_name)
+        log.info('Set project to {p} and ReST API token to {t} for user: {u}'.format(
+            p=project_name, t=token, u=username))
+
+    def set_project(self, desired_project_name):
+        """Changes the project/token
+
+        TODO remove, this is deprecated
+
+        :param desired_project_name: (str) Name of the desired project
+        :return: None
+        :raises: BartError
+        """
+        self.set_project_token(project_name=desired_project_name)
+
     def get_asset_type(self, asset_type):
         """Translates the user-provided asset type to an actual ReST target
 
@@ -154,42 +218,6 @@ class Bart:
         else:
             log.warn('Unable to determine the target from provided asset_type: {t}'.format(t=asset_type))
         return target
-
-    def set_project(self, desired_project_name):
-        """Changes the project/token
-
-        :param desired_project_name: (str) Name of the desired project
-        :return: None
-        :raises: BartError
-        """
-        log = logging.getLogger(self.cls_logger + '.set_project')
-
-        project_tokens = self.config_data['projects']
-        token = None
-        found_project = False
-
-        for project in project_tokens:
-            if project['name'] == desired_project_name:
-                try:
-                    token = project['rest_key']
-                except KeyError:
-                    _, ex, trace = sys.exc_info()
-                    msg = 'Project {p} found in config data, but has not associated ReST API token\n{e}'.format(
-                        p=desired_project_name, e=str(ex))
-                    raise BartError, msg, trace
-                else:
-                    found_project = True
-                    log.debug('Found rest token for project {p}, using as default: {t}'.format(p=project, t=token))
-                    break
-
-        # Error if a token was not found for the desired project
-        if found_project is False or token is None:
-            msg = 'Desired project not found in config data: {p}'.format(p=desired_project_name)
-            raise BartError(msg)
-
-        # Set the user to the new project token
-        self.user = RestUser(token=token, username=self.user.username, project=desired_project_name)
-        log.info('Set project to {p} and ReST API token to: {t}'.format(p=desired_project_name, t=token))
 
     def register_cloud_from_json(self, json_file):
         """Attempts to register a Cloud using the provided JSON
@@ -336,6 +364,21 @@ class Bart:
             raise BartError, msg, trace
         log.info('Allocated new Virtualization Realm ID {v} to Cloud ID: {c}'.format(v=str(vr_id), c=str(cloud_id)))
         return vr_id
+
+    def list_projects(self):
+        """Query CONS3RT to retrun a list of projects for the current user
+
+        :return: (list) of Project info
+        """
+        log = logging.getLogger(self.cls_logger + '.list_projects')
+        log.info('Attempting to list projects for user: {u}'.format(u=self.user.username))
+        try:
+            projects = self.cons3rt_client.list_projects()
+        except Cons3rtClientError:
+            _, ex, trace = sys.exc_info()
+            msg = 'Unable to query CONS3RT for a list of projects\n{e}'.format(e=str(ex))
+            raise BartError, msg, trace
+        return projects
 
     def list_clouds(self):
         """Query CONS3RT to return a list of the currently configured Clouds

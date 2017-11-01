@@ -290,6 +290,16 @@ class Cons3rtClient:
 
         return retval
 
+    def list_projects(self):
+        """Queries CONS3RT for a list of projects for the current user
+
+        :return: (list) of projects
+        """
+        response = self.http_client.http_get(rest_user=self.user, target='projects')
+        content = self.http_client.parse_response(response=response)
+        projects = json.loads(content)
+        return projects
+
     def list_clouds(self):
         """Queries CONS3RT for a list of Clouds
 
