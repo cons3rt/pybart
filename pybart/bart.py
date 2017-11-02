@@ -150,7 +150,7 @@ class Bart:
 
         # Loop through the projects until the project matches
         for user in self.user_list:
-            if user.project == project_name:
+            if user.project_name == project_name:
                 log.info('Setting ReST User for project name {p} and token: {t}'.format(p=project_name, t=user.token))
                 self.user = user
 
