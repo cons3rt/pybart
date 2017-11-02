@@ -131,7 +131,7 @@ class Bart:
 
         # Select the first user to use as the default
         self.user = self.user_list[0]
-        log.info('Set project to [{p}] and ReST API token: {t}'.format(p=self.user.project, t=self.user.token))
+        log.info('Set project to [{p}] and ReST API token: {t}'.format(p=self.user.project_name, t=self.user.token))
 
     def set_project_token(self, project_name):
         """Sets the project name and token to the specified project name.  This project name
