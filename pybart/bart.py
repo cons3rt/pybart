@@ -151,7 +151,9 @@ class Bart:
         # Loop through the projects until the project matches
         log.info('Attempting to set the project token pair for project: {p}'.format(p=project_name))
         for rest_user in self.user_list:
+            log.debug('Checking if rest user matches project [{p}]: {u}'.format(p=project_name, u=str(rest_user)))
             if rest_user.project_name == project_name:
+                log.info('Found matching rest user: {u}'.format(u=str(rest_user)))
                 self.user = rest_user
                 log.info('Set project to [{p}] and ReST API token: {t}'.format(
                     p=self.user.project_name, t=self.user.token))
