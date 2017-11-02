@@ -20,7 +20,7 @@ source /etc/bashrc
 gitServerDomainName="github.com"
 
 # pyBART GIT clone URL
-pybartGitUrl="git@${gitServerDomainName}:cons3rt/pybart.git"
+pybartGitUrl="https://${gitServerDomainName}/cons3rt/pybart.git"
 
 # Default GIT branch
 defaultGitBranch="master"
@@ -190,9 +190,6 @@ function main() {
     if [ -z "${HOME}" ] ; then
         export HOME="/root"
     fi
-
-    ${logInfo} "Adding ${gitServerDomainName} to known_hosts"
-    ssh-keyscan ${gitServerDomainName} >> /root/.ssh/known_hosts
 
     # Git clone the specified branch
     ${logInfo} "Cloning the pyBART GIT repo..."
