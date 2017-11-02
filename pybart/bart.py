@@ -149,10 +149,11 @@ class Bart:
                 t=project_name.__class__.__name__))
 
         # Loop through the projects until the project matches
-        for user in self.user_list:
-            if user.project_name == project_name:
-                log.info('Setting ReST User for project name {p} and token: {t}'.format(p=project_name, t=user.token))
-                self.user = user
+        for rest_user in self.user_list:
+            if rest_user.project_name == project_name:
+                self.user = rest_user
+                log.info('Set project to [{p}] and ReST API token: {t}'.format(
+                    p=self.user.project_name, t=self.user.token))
 
     def set_project(self, desired_project_name):
         """Changes the project/token
