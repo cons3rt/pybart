@@ -149,6 +149,7 @@ class Bart:
                 t=project_name.__class__.__name__))
 
         # Loop through the projects until the project matches
+        log.info('Attempting to set the project token pair for project: {p}'.format(p=project_name))
         for rest_user in self.user_list:
             if rest_user.project_name == project_name:
                 self.user = rest_user
