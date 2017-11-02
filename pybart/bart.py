@@ -43,6 +43,7 @@ class Bart:
         self.virtrealm = ''
         self.config_file = config_file
         self.config_data = {}
+        self.user_list = []
         if self.user is None:
             self.load_config()
         self.cons3rt_client = Cons3rtClient(base=url, user=self.user)
@@ -73,31 +74,6 @@ class Bart:
         else:
             log.debug('Loading config data from file: {f}'.format(f=self.config_file))
 
-        # Ensure at least one token is found
-        try:
-            project_tokens = self.config_data['projects']
-        except KeyError:
-            _, ex, trace = sys.exc_info()
-            msg = 'Element [projects] is required but not found in the config data, at least 1 project token must ' \
-                  'be configured\n{e}'.format(e=str(ex))
-            raise BartError, msg, trace
-
-        token = None
-        project_name = None
-        for project in project_tokens:
-            try:
-                token = project['rest_key']
-                project_name = project['name']
-            except KeyError:
-                pass
-            else:
-                log.debug('Found rest token for project {p}, using as default: {t}'.format(p=project, t=token))
-                break
-
-        if token is None or project_name is None:
-            msg = 'A ReST API token was not found in config file: {f}'.format(f=self.config_file)
-            raise BartError(msg)
-
         # Attempt to find a username in the config data
         try:
             username = self.config_data['name']
@@ -109,27 +85,53 @@ class Bart:
             cert_file_path = self.config_data['cert']
         except KeyError:
             cert_file_path = None
+        else:
+            # Ensure the cert_file_path points to an actual file
+            if not os.path.isfile(cert_file_path):
+                raise BartError('config.json provided a cert, but the cert file was not found: {f}'.format(
+                    f=cert_file_path))
+            log.info('Found certificate file: {f}'.format(f=cert_file_path))
 
         # Ensure that either a username or cert_file_path was found
         if username is None and cert_file_path is None:
             raise BartError('The pyBart config.json file must contain values for either name or cert')
 
-        # Create a RestUser for cert-auth if a cert_file_path was provided
-        if cert_file_path is not None:
-            # Ensure the cert_file_path points to an actual file
-            if not os.path.isfile(cert_file_path):
-                raise BartError('config.json provided a cert, but the cert file was not found: {f}'.format(
-                    f=cert_file_path))
+        # Ensure at least one token is found
+        try:
+            project_token_list = self.config_data['projects']
+        except KeyError:
+            _, ex, trace = sys.exc_info()
+            msg = 'Element [projects] is required but not found in the config data, at least 1 project token must ' \
+                  'be configured\n{e}'.format(e=str(ex))
+            raise BartError, msg, trace
 
-            # Assign the current user using the first Project and Token listed
-            self.user = RestUser(token=token, project=project_name, cert_file_path=cert_file_path)
-            log.info('Created a ReST user with certificate authentication in {p}, ReST API token: {t} for cert '
-                     'file: {c}'.format(p=project_name, t=token, c=cert_file_path))
-        else:
-            # Assign the current user using the first Project and Token listed
-            self.user = RestUser(token=token, username=username, project=project_name)
-            log.info('Set project to {p} and ReST API token to {t} for user: {u}'.format(
-                p=project_name, t=token, u=username))
+        # Attempt to create a ReST user for each project in the list
+        for project in project_token_list:
+            try:
+                token = project['rest_key']
+                project_name = project['name']
+            except KeyError:
+                log.warn('Found an invalid project token, skipping: {p}'.format(p=str(project)))
+                continue
+
+            # Create a ReST User for the project/token pair
+            log.debug('Found rest token for project {p}: {t}'.format(p=project, t=token))
+
+            # Create a cert-based auth or username-based auth user depending on the config
+            if cert_file_path:
+                self.user_list.append(RestUser(token=token, project=project_name, cert_file_path=cert_file_path))
+            elif username:
+                self.user_list.append(RestUser(token=token, project=project_name, username=username))
+
+        # Ensure that at least one valid project/token was found
+        if len(self.user_list) < 1:
+            raise BartError('A ReST API token was not found in config file: {f}'.format(f=self.config_file))
+
+        log.info('Found {n} project/token pairs'.format(n=str(len(self.user_list))))
+
+        # Select the first user to use as the default
+        self.user = self.user_list[0]
+        log.info('Set project to [{p}] and ReST API token: {t}'.format(p=self.user.project, t=self.user.token))
 
     def set_project_token(self, project_name):
         """Sets the project name and token to the specified project name.  This project name
@@ -146,43 +148,11 @@ class Bart:
             raise BartError('The arg project_name must be a string, found: {t}'.format(
                 t=project_name.__class__.__name__))
 
-        # Attempt to find a username in the config data
-        username = None
-        try:
-            username = self.config_data['name']
-        except KeyError:
-            _, ex, trace = sys.exc_info()
-            msg = 'Element [username] is required but not found in the config data\n{e}'.format(e=str(ex))
-            raise BartError, msg, trace
-
-        # Ensure at least one token is found
-        try:
-            projects = self.config_data['projects']
-        except KeyError:
-            _, ex, trace = sys.exc_info()
-            msg = 'Element [projects] is required but not found in the config data, at least 1 project token must ' \
-                  'be configured\n{e}'.format(e=str(ex))
-            raise BartError, msg, trace
-
         # Loop through the projects until the project matches
-        token = None
-        for project in projects:
-            try:
-                if project['name'] == project_name:
-                    log.info('Found an entry in config data for project name: {p}'.format(p=project_name))
-                    token = project['rest_key']
-            except KeyError:
-                log.warn('Config data is invalid: {d}'.format(d=str(project)))
-                continue
-
-        # Raise an error if the token was not found
-        if token is None:
-            raise BartError('Token not found for username {u} in project: {p}'.format(u=username, p=project_name))
-
-        # Assign the current user using the first Project and Token listed
-        self.user = RestUser(token=token, username=username, project=project_name)
-        log.info('Set project to {p} and ReST API token to {t} for user: {u}'.format(
-            p=project_name, t=token, u=username))
+        for user in self.user_list:
+            if user.project == project_name:
+                log.info('Setting ReST User for project name {p} and token: {t}'.format(p=project_name, t=user.token))
+                self.user = user
 
     def set_project(self, desired_project_name):
         """Changes the project/token
@@ -377,6 +347,33 @@ class Bart:
         except Cons3rtClientError:
             _, ex, trace = sys.exc_info()
             msg = 'Unable to query CONS3RT for a list of projects\n{e}'.format(e=str(ex))
+            raise BartError, msg, trace
+        return projects
+
+    def list_projects_in_virtualization_realm(self, vr_id):
+        """Queries CONS3RT for a list of projects in the virtualization realm
+
+        :param vr_id: (int) virtualization realm ID
+        :return: (list) of projects
+        :raises: BartError
+        """
+        log = logging.getLogger(self.cls_logger + '.list_projects_in_virtualization_realm')
+
+        # Ensure the vr_id is an int
+        if not isinstance(vr_id, int):
+            try:
+                vr_id = int(vr_id)
+            except ValueError:
+                msg = 'vr_id arg must be an Integer, found: {t}'.format(t=vr_id.__class__.__name__)
+                raise BartError(msg)
+
+        log.debug('Attempting to list projects in virtualization realm ID: {i}'.format(i=str(vr_id)))
+        try:
+            projects = self.cons3rt_client.list_projects_in_virtualization_realm(vr_id=vr_id)
+        except Cons3rtClientError:
+            _, ex, trace = sys.exc_info()
+            msg = 'Unable to query CONS3RT for a list of projects in virtualization realm ID: {i}\n{e}'.format(
+                i=str(vr_id), e=str(ex))
             raise BartError, msg, trace
         return projects
 
