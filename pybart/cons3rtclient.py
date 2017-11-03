@@ -14,6 +14,9 @@ class Cons3rtClient:
         self.user = user
         self.http_client = Client(base)
 
+    def set_user(self, user):
+        self.user = user
+
     def register_cloud(self, cloud_file):
         """Registers a Cloud using info in the provided JSON file
 

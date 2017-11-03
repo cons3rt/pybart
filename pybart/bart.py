@@ -32,11 +32,12 @@ class BartError(Exception):
 
 class Bart:
 
-    def __init__(self, url, base_dir=None, user=None, config_file=bart_config_file):
+    def __init__(self, url, base_dir=None, user=None, config_file=bart_config_file, project=None):
         self.cls_logger = mod_logger + '.Bart'
         self.user = user
         self.url_base = url
         self.base_dir = base_dir
+        self.project = project
         self.retries = ''
         self.timeout = ''
         self.queries = ''
@@ -131,6 +132,8 @@ class Bart:
 
         # Select the first user to use as the default
         self.user = self.user_list[0]
+        if self.project is not None:
+            self.set_project_token(project_name=self.project)
         log.info('Set project to [{p}] and ReST API token: {t}'.format(p=self.user.project_name, t=self.user.token))
 
     def set_project_token(self, project_name):
