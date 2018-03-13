@@ -113,4 +113,10 @@ if [ $? -ne 0 ] ; then
     exit 1
 fi
 
+make_asset "windows"
+if [ $? -ne 0 ] ; then
+    echo "ERROR: Unable to create the Windows asset"
+    exit 2
+fi
+
 exit 0
