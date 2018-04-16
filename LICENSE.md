@@ -1,7 +1,6 @@
-License info for CONS3RT
+Please use this python library freely.
 
-Copyright 2011-2015 Jackpine Technologies Corporation
-Released under the DoD Community Source Usage Agreement Version 1.1. All rights reserved.
+License info for CONS3RT:
 
-License text:
-http://www.forge.mil/UserAgreement.html
+Copyright 2011-2018 Jackpine Technologies Corp.
+Released under the [DoD Community Source Usage Agreement](http://www.forge.mil/UserAgreement.html) Version 1.1\. All rights reserved.
