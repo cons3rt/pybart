@@ -24,15 +24,20 @@ pybartGitUrl="https://${gitServerDomainName}/cons3rt/pybart.git"
 # Default GIT branch
 defaultGitBranch="master"
 
-# Root directory for pyBART src and other files
-pybartRoot="/root/.pycons3rt"
-
-# Defines the directory where cons3rt-deploying-cons3rt source code will
-# be staged and installed to.
-pybartSrcDir="${pybartRoot}/src/pybart"
+# Source code directories
+pycons3rtSourceDir=
+sourceDir=
 
 # Path to the pybart linux install script
 pybartInstaller=
+
+# Environment variable file
+pycons3rtEnv="/etc/profile.d/pycons3rt.sh"
+
+# Python info
+pythonHome=
+pythonExe=
+pipExe=
 
 ####################### END GLOBAL VARIABLES #######################
 
@@ -71,6 +76,54 @@ function read_deployment_properties() {
     return $?
 }
 
+function get_env() {
+    logInfo "Attempting to pycons3rt environment variables..."
+    . ${pycons3rtEnv}
+
+    # Get python home
+    if [ -z "${PYCONS3RT_PYTHON_HOME}" ] ; then
+        logErr "Required environment vairable not found: PYCONS3RT_PYTHON_HOME"
+        return 1
+    else
+        pythonHome="${PYCONS3RT_PYTHON_HOME}"
+        logInfo "Found PYCONS3RT_PYTHON_HOME: ${pythonHome}"
+    fi
+
+    # Get python
+    if [ -z "${PYCONS3RT_PYTHON}" ] ; then
+        logErr "Required environment vairable not found: PYCONS3RT_PYTHON"
+        return 2
+    else
+        pythonExe="${PYCONS3RT_PYTHON}"
+        logInfo "Found PYCONS3RT_PYTHON: ${pythonExe}"
+    fi
+
+    # Get pip
+    if [ -z "${PYCONS3RT_PIP}" ] ; then
+        logErr "Required environment vairable not found: PYCONS3RT_PIP"
+        return 3
+    else
+        pipExe="${PYCONS3RT_PIP}"
+        logInfo "Found PYCONS3RT_PIP: ${pipExe}"
+    fi
+
+    # Get pycons3rt source dir
+    if [ -z "${PYCONS3RT_SOURCE_DIR}" ] ; then
+        logErr "Required environment vairable not found: PYCONS3RT_SOURCE_DIR"
+        return 3
+    else
+        pycons3rtSourceDir="${PYCONS3RT_SOURCE_DIR}"
+        logInfo "Found PYCONS3RT_SOURCE_DIR: ${pycons3rtSourceDir}"
+    fi
+
+    # Determine the source directory
+    sourceDir="${pycons3rtSourceDir}/pybart"
+    logInfo "Using source directory: ${sourceDir}"
+
+    logInfo "pycons3rt python environment variables loaded successfully"
+    return 0
+}
+
 function verify_dns() {
     # Tries to resolve a domain name for 5 minutes
     # Parameters:
@@ -100,37 +153,26 @@ function verify_prerequisites() {
     logInfo "Verifying prerequisites are installed..."
 
     logInfo "Ensuring python is installed..."
-    python --version >> ${logFile} 2>&1
+    ${pythonExe} --version >> ${logFile} 2>&1
 	if [ $? -ne 0 ] ; then
         logErr "Python not detected, and is a required dependency"
         return 1
     fi
 
     logInfo "Ensuring pip is installed..."
-    pip --version >> ${logFile} 2>&1
+    ${pipExe} --version >> ${logFile} 2>&1
     if [ $? -ne 0 ] ; then
         logErr "pip is not installed, this is a required dependency"
         return 2
     fi
 
     logInfo "Ensuring the pycons3rt package is installed..."
-    python -c "import pycons3rt" >> ${logFile} 2>&1
+    ${pythonExe} -c "import pycons3rt" >> ${logFile} 2>&1
     if [ $? -ne 0 ] ; then
         logErr "pycons3rt not detected, this is a required dependency"
         return 3
     fi
     logInfo "Verified prerequisites!"
-    return 0
-}
-
-function install_pip_packages() {
-    logInfo "Installing pip packages..."
-
-    logInfo "Installing the requests package using pip..."
-    pip install requests_toolbelt >> ${logFile} 2>&1
-    if [ $? -ne 0 ]; then logErr "There was a problem installing requests_toolbelt"; return 1; fi
-
-    logInfo "All pip packages installed successfully"
     return 0
 }
 
@@ -155,10 +197,6 @@ function git_clone() {
         logInfo "PYBART_BRANCH deployment property not found, git will clone the ${pybartBranch} branch"
     fi
 
-    # Create the src directory
-    logInfo "Creating directory ${pybartSrcDir}..."
-    mkdir -p ${pybartSrcDir} >> ${logFile} 2>&1
-
     logInfo "Ensuring HOME is set..."
     if [ -z "${HOME}" ] ; then
         export HOME="/root"
@@ -167,8 +205,15 @@ function git_clone() {
     # Git clone the specified branch
     logInfo "Cloning the pyBART GIT repo..."
     for i in {1..10} ; do
+
+        # Remove the source directory if it exists
+        if [ -d ${sourceDir} ] ; then
+            logInfo "Removing: ${sourceDir}"
+            rm -Rf ${sourceDir} >> ${logFile} 2>&1
+        fi
+
         logInfo "Attempting to clone the GIT repo, attempt ${i} of 10..."
-        git clone -b ${pybartBranch} --depth 1 ${pybartGitUrl} ${pybartSrcDir}
+        git clone -b ${pybartBranch} --depth 1 ${pybartGitUrl} ${sourceDir} >> ${logFile} 2>&1
         result=$?
         logInfo "git clone exited with code: ${result}"
         if [ ${result} -ne 0 ] && [ $i -ge 10 ] ; then
@@ -184,12 +229,41 @@ function git_clone() {
     done
 
     # Ensure the pybart install script can be found
-    pybartInstaller="${pybartSrcDir}/scripts/install.sh"
+    pybartInstaller="${sourceDir}/scripts/install.sh"
     if [ ! -f ${pybartInstaller} ] ; then
         logErr "pybart install script not found: ${pybartInstaller}, source code may not have been checked out or staged correctly"
         return 3
     fi
     logInfo "Found file: ${pybartInstaller}, git clone succeeded!"
+    return 0
+}
+
+function install_pip_requirements() {
+    logInfo "Installing pip requirements from the requirements.txt file..."
+
+    if [ ! -d ${sourceDir} ] ; then
+        logErr "Source code directory not found, cannot install pip requirements: ${sourceDir}"
+        return 1
+    fi
+
+    logInfo "Changing to directory: ${sourceDir}"
+    cd ${sourceDir} >> ${logFile} 2>&1
+
+    # Ensure the requirements file exists
+    requirementsFileRelPath="./cfg/requirements.txt"
+    if [ ! -f ${requirementsFileRelPath} ] ; then
+        logErr "Requirements file not found at relative path: ${requirementsFileRelPath}"
+        return 2
+    fi
+
+    logInfo "Using pip: ${pipExe}"
+    logInfo "Attempting to install pip requirements from file at relative path: ${requirementsFileRelPath}"
+    ${pipExe} install -r ${requirementsFileRelPath} >> ${logFile} 2>&1
+    if [ $? -ne 0 ] ; then
+        logErr "There was a problem installing pip requirements"
+        return 3
+    fi
+    logInfo "Successfully installed pip requirements"
     return 0
 }
 
@@ -202,18 +276,45 @@ function install_pybart() {
     return 0
 }
 
+function run_setup_install() {
+    logInfo "Attempting to run setup.py..."
+
+    if [ ! -d ${sourceDir} ] ; then
+        logErr "Source code directory not found, cannot run setup.py: ${sourceDir}"
+        return 1
+    fi
+
+    logInfo "Changing to directory: ${sourceDir}"
+    cd ${sourceDir} >> ${logFile} 2>&1
+
+    # Ensure setup.py exists
+    if [ ! -f setup.py ] ; then
+        logErr "setup.py file not found"
+        return 2
+    fi
+
+    logInfo "Running setup.py..."
+    ${pythonExe} setup.py install >> ${logFile} 2>&1
+    if [ $? -ne 0 ] ; then logErr "There was a problem running setup.py..."; return 3; fi
+
+    logInfo "setup.py ran successfully!"
+    return 0
+}
+
 function main() {
     logInfo "Beginning ${logTag} install..."
     set_deployment_home
     read_deployment_properties
+    get_env
+    if [ $? -ne 0 ]; then logErr "A required environment variable is not set"; return 1; fi
     verify_prerequisites
-    if [ $? -ne 0 ]; then logErr "A required prerequisite is not installed"; return 1; fi
-    install_pip_packages
-    if [ $? -ne 0 ] ; then logErr "There was a problem installing one or more pip packages"; return 2; fi
+    if [ $? -ne 0 ]; then logErr "A required prerequisite is not installed"; return 2; fi
     git_clone
     if [ $? -ne 0 ] ; then logErr "There was a problem cloning the pybart git repo"; return 3; fi
-    install_pybart
-    if [ $? -ne 0 ] ; then logErr "There was a problem installing pybart"; return 4; fi
+    install_pip_requirements
+    if [ $? -ne 0 ] ; then logErr "There was a problem installing one or more pip packages"; return 4; fi
+    run_setup_install
+    if [ $? -ne 0 ] ; then logErr "There was a problem installing pybart"; return 5; fi
     logInfo "Completed: ${logTag} install script"
     return 0
 }
