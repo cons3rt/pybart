@@ -609,13 +609,24 @@ class Cons3rtClient:
         :return: (list) Containing all site users
         :raises: Cons3rtClientError
         """
-        target = 'users'
-        try:
-            response = self.http_client.http_get(rest_user=self.user, target=target)
-        except Cons3rtClientError:
-            _, ex, trace = sys.exc_info()
-            msg = '{n}: The HTTP response contains a bad status code\n{e}'.format(n=ex.__class__.__name__, e=str(ex))
-            raise Cons3rtClientError, msg, trace
-        result = self.http_client.parse_response(response=response)
-        users = json.loads(result)
+        users = []
+        page_num = 0
+        while True:
+            target = 'users?maxresults=100?page={p}'.format(p=str(page_num))
+            try:
+                response = self.http_client.http_get(
+                    rest_user=self.user,
+                    target=target
+                )
+            except Cons3rtClientError:
+                _, ex, trace = sys.exc_info()
+                msg = '{n}: The HTTP response contains a bad status code\n{e}'.format(n=ex.__class__.__name__, e=str(ex))
+                raise Cons3rtClientError, msg, trace
+            result = self.http_client.parse_response(response=response)
+            found_users = json.loads(result)
+            users += found_users
+            if len(found_users) < 100:
+                break
+            else:
+                page_num += 1
         return users
