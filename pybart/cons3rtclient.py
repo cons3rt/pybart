@@ -612,7 +612,7 @@ class Cons3rtClient:
         users = []
         page_num = 0
         while True:
-            target = 'users?maxresults=100?page={p}'.format(p=str(page_num))
+            target = 'users?maxresults=100&page={p}'.format(p=str(page_num))
             try:
                 response = self.http_client.http_get(
                     rest_user=self.user,
