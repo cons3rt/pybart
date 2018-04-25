@@ -292,7 +292,7 @@ class Cons3rtClient:
 
         :return: (list) of projects
         """
-        response = self.http_client.http_get(rest_user=self.user, target='expandedprojects')
+        response = self.http_client.http_get(rest_user=self.user, target='projects/expanded')
         content = self.http_client.parse_response(response=response)
         projects = json.loads(content)
         return projects
