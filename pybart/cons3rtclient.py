@@ -265,22 +265,6 @@ class Cons3rtClient:
             raise Cons3rtClientError, msg, trace
         return vr_id
 
-    def get_project_id(self, project_name):
-        retval = None
-
-        response = self.http_client.http_get(rest_user=self.user, target='projects')
-        content = self.http_client.parse_response(response=response)
-        projects = json.loads(content)
-        for project in projects:
-            if project['name'] == project_name:
-                retval = project['id']
-
-        if retval is None:
-            msg = 'Project not found: {f}'.format(f=project_name)
-            raise Cons3rtClientError(msg)
-        else:
-            return retval
-
     def get_cloud_id(self, cloud_name):
         retval = None
 
@@ -302,6 +286,27 @@ class Cons3rtClient:
         content = self.http_client.parse_response(response=response)
         projects = json.loads(content)
         return projects
+
+    def list_expanded_projects(self):
+        """Queries CONS3RT for a list of projects the user is not a member of
+
+        :return: (list) of projects
+        """
+        response = self.http_client.http_get(rest_user=self.user, target='expandedprojects')
+        content = self.http_client.parse_response(response=response)
+        projects = json.loads(content)
+        return projects
+
+    def get_project_details(self, project_id):
+        """Queries CONS3RT for details by project ID
+
+        :param project_id: (int) ID of the project
+        :return: (dict) containing project details
+        """
+        response = self.http_client.http_get(rest_user=self.user, target='projects/{i}'.format(i=str(project_id)))
+        content = self.http_client.parse_response(response=response)
+        project_details = json.loads(content)
+        return project_details
 
     def list_clouds(self):
         """Queries CONS3RT for a list of Clouds
@@ -472,7 +477,8 @@ class Cons3rtClient:
         response = self.http_client.http_delete(
             rest_user=self.user,
             target='clouds/' + str(cloud_id) + '/virtualizationrealms/deallocate?virtRealmId=' + str(vr_id),
-                keep_alive=True)
+            keep_alive=True
+        )
         result = self.http_client.parse_response(response=response)
         return result
 
@@ -620,7 +626,8 @@ class Cons3rtClient:
                 )
             except Cons3rtClientError:
                 _, ex, trace = sys.exc_info()
-                msg = '{n}: The HTTP response contains a bad status code\n{e}'.format(n=ex.__class__.__name__, e=str(ex))
+                msg = '{n}: The HTTP response contains a bad status code\n{e}'.format(
+                    n=ex.__class__.__name__, e=str(ex))
                 raise Cons3rtClientError, msg, trace
             result = self.http_client.parse_response(response=response)
             found_users = json.loads(result)

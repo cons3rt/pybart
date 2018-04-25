@@ -49,10 +49,9 @@ class Bart:
             self.load_config()
         self.cons3rt_client = Cons3rtClient(base=url, user=self.user)
 
-    def load_config(self, config_file=None):
+    def load_config(self):
         """Loads the default config file
 
-        :param config_file: (str) path to the pybart config json file
         :return: None
         :raises: BartError
         """
@@ -348,12 +347,12 @@ class Bart:
         return vr_id
 
     def list_projects(self):
-        """Query CONS3RT to retrun a list of projects for the current user
+        """Query CONS3RT to return a list of projects for the current user
 
         :return: (list) of Project info
         """
         log = logging.getLogger(self.cls_logger + '.list_projects')
-        log.info('Attempting to list projects for user: {u}'.format(u=self.user.username))
+        log.debug('Attempting to list projects for user: {u}'.format(u=self.user.username))
         try:
             projects = self.cons3rt_client.list_projects()
         except Cons3rtClientError:
@@ -361,6 +360,276 @@ class Bart:
             msg = 'Unable to query CONS3RT for a list of projects\n{e}'.format(e=str(ex))
             raise BartError, msg, trace
         return projects
+
+    def list_expanded_projects(self):
+        """Query CONS3RT to return a list of projects the current user is not a member of
+
+        :return: (list) of Project info
+        """
+        log = logging.getLogger(self.cls_logger + '.list_expanded_projects')
+        log.debug('Attempting to list non-member projects for user: {u}'.format(u=self.user.username))
+        try:
+            projects = self.cons3rt_client.list_expanded_projects()
+        except Cons3rtClientError:
+            _, ex, trace = sys.exc_info()
+            msg = 'Unable to query CONS3RT for a list of projects\n{e}'.format(e=str(ex))
+            raise BartError, msg, trace
+        return projects
+
+    def list_all_projects(self):
+        """Query CONS3RT to return a list of all projects on the site
+
+        :return: (list) of Project info
+        """
+        log = logging.getLogger(self.cls_logger + '.list_all_projects')
+        log.debug('Attempting to list all projects...')
+        try:
+            member_projects = self.cons3rt_client.list_projects()
+            non_member_projects = self.cons3rt_client.list_expanded_projects()
+        except Cons3rtClientError:
+            _, ex, trace = sys.exc_info()
+            msg = 'Unable to query CONS3RT for a list of projects\n{e}'.format(e=str(ex))
+            raise BartError, msg, trace
+        return member_projects + non_member_projects
+
+    def get_project_details(self, project_id):
+        """Returns details for the specified project ID
+
+        :param (int) project_id: ID of the project to query
+        :return: (dict) details for the project ID
+        """
+        log = logging.getLogger(self.cls_logger + '.get_project_details')
+
+        # Ensure the vr_id is an int
+        if not isinstance(project_id, int):
+            try:
+                project_id = int(project_id)
+            except ValueError:
+                msg = 'project_id arg must be an Integer, found: {t}'.format(t=project_id.__class__.__name__)
+                raise BartError(msg)
+
+        log.debug('Attempting query project ID {i}'.format(i=str(project_id)))
+        try:
+            project_details = self.cons3rt_client.get_project_details(project_id=project_id)
+        except Cons3rtClientError:
+            _, ex, trace = sys.exc_info()
+            msg = 'Unable to query CONS3RT for details on project: {i}\n{e}'.format(i=str(project_id), e=str(ex))
+            raise BartError, msg, trace
+        return project_details
+
+    def get_project_id(self, project_name):
+        """Given a project name, return a list of IDs with that name
+
+        :param project_name: (str) name of the project
+        :return: (list) of project IDs (int)
+        :raises: BartError
+        """
+        log = logging.getLogger(self.cls_logger + '.get_project_id')
+
+        if not isinstance(project_name, basestring):
+            raise BartError('Expected project_name arg to be a string, found: {t}'.format(
+                t=project_name.__class__.__name__)
+            )
+
+        project_id_list = []
+
+        # List all projects
+        log.debug('Getting a list of all projects...')
+        try:
+            projects = self.list_all_projects()
+        except BartError:
+            _, ex, trace = sys.exc_info()
+            msg = 'BartError: There was a problem listing all projects\n{e}'.format(e=str(ex))
+            raise BartError, msg, trace
+
+        # Look for project IDs with matching names
+        log.debug('Looking for projects with name: {n}'.format(n=project_name))
+        for project in projects:
+            if project['name'] == project_name:
+                project_id_list.append(project['id'])
+
+        # Raise an error if the project was not found
+        if len(project_id_list) < 1:
+            raise BartError('Project not found: {f}'.format(f=project_name))
+
+        # Return the list of IDs
+        return project_id_list
+
+    def generate_project_report(self):
+        """Generate a CSV report for all projects
+
+        :return:
+        """
+        log = logging.getLogger(self.cls_logger + '.get_project_id')
+
+        # Get a list of all projects
+        log.info('Attempting to query for all projects...')
+        try:
+            projects = self.list_all_projects()
+        except BartError:
+            _, ex, trace = sys.exc_info()
+            msg = 'BartError: There was a problem listing all projects\n{e}'.format(e=str(ex))
+            raise BartError, msg, trace
+
+        # Output strings with header rows
+        project_details_output = 'ProjectID,ProjectName,ExpDate,MaxCPUs,MaxGPUs,MaxRamMB,MaxVMs,MaxStorage,' \
+                                 'MaxMembers,AssetBundleEnabled,#Members,#Cloudspaces,#DRs\n'
+        project_vrs_output = 'ProjectID,CloudspaceID\n'
+        project_drs_output = 'ProjectID,DR_ID\n'
+        project_members_output = 'ProjectID,Username,UserID\n'
+
+        # Get details of each project
+        for project in projects:
+
+            # Get the name and ID
+            try:
+                project_name = project['name']
+                project_id = project['id']
+            except KeyError:
+                raise BartError('Name or ID data not found in project data: {d}'.format(d=','.join(project)))
+
+            log.info('Getting details on project [{n}] with ID: {i}'.format(n=project_name, i=str(project_id)))
+
+            # Get the project details
+            try:
+                project_details = self.get_project_details(project_id=project_id)
+            except BartError:
+                _, ex, trace = sys.exc_info()
+                msg = 'BartError: There was a problem getting details for project ID: {i}'.format(i=str(project_id))
+                raise BartError, msg, trace
+
+            # Get other project details
+            try:
+                project_member_count = project_details['memberCount']
+                project_asset_bundle_enabled = project_details['features']['assetBundleInstallerEnabled']
+                project_max_users = project_details['features']['maximumUsers']
+                project_max_vms = project_details['features']['maximumVirtualMachines']
+                project_max_cpus = project_details['features']['maximumNumCpus']
+                project_max_gpus = project_details['features']['maximumNumGpus']
+                project_max_ram = project_details['features']['maximumRamInMegabytes']
+                project_max_storage = project_details['features']['maximumStorageInMegabytes']
+                project_exp_date_unix_epoch_milli = project_details['features']['validUtil']
+            except KeyError:
+                _, ex, trace = sys.exc_info()
+                msg = 'Required data not found in project details: {d}\n{e}'.format(d=project_details, e=str(ex))
+                raise BartError, msg, trace
+
+            # Get the exp date/time in millisec as an int
+            try:
+                project_exp_date_unix_epoch_milli = int(project_exp_date_unix_epoch_milli)
+            except ValueError:
+                _, ex, trace = sys.exc_info()
+                msg = 'ValueError: Unable to convert the expiration date to an int: {i}\n{e}'.format(
+                    i=str(project_exp_date_unix_epoch_milli), e=str(ex))
+                raise BartError, msg, trace
+
+            # Convert to unix epoch seconds
+            project_exp_date_unix_epoch = project_exp_date_unix_epoch_milli/1000
+
+            # Convert to date/time
+            project_exp_date_time = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(project_exp_date_unix_epoch))
+
+            # Get the list of virtualization realms
+            project_vr_id_list = []
+            vr_dr_list = []
+            project_num_vrs = 0
+            if 'virtualizationRealms' in project_details:
+                for virtualization_realm in project_details['virtualizationRealms']:
+                    # Get the VR ID
+                    try:
+                        vr_id = int(virtualization_realm['id'])
+                    except (KeyError, ValueError):
+                        raise BartError('Unable to find virtualization realm ID in data: {d}'.format(
+                            d=virtualization_realm))
+
+                    log.info('Found project virtualization realm: {v}'.format(v=str(vr_id)))
+                    project_vr_id_list.append(vr_id)
+                    project_num_vrs += 1
+
+                    # Append the VR output
+                    project_vrs_output += str(project_id) + ',' + str(vr_id) + '\n'
+
+                    # Add DRs in that VR to a list
+                    try:
+                        vr_dr_list.append(self.list_deployment_runs_in_virtualization_realm(
+                            vr_id=vr_id,
+                            search_type='SEARCH_ACTIVE'
+                        ))
+                    except BartError:
+                        _, ex, trace = sys.exc_info()
+                        msg = 'BartError: There was a problem listing deployment runs in virtualization ' \
+                              'realm ID: {i}'.format(i=str(vr_id))
+                        raise BartError, msg, trace
+            else:
+                log.info('No virtualization realms found for this project')
+
+            # Filter DRs by project
+            project_num_drs = 0
+            for dr in vr_dr_list:
+                try:
+                    dr_project = dr['project']
+                    dr_id = dr['id']
+                except KeyError:
+                    _, ex, trace = sys.exc_info()
+                    msg = 'KeyError: DR data does not contain project: {d}\n{e}'.format(d=dr, e=str(ex))
+                    raise BartError, msg, trace
+
+                if dr_project == project_name:
+                    log.info('Found project deployment run ID: {i}'.format(i=str(dr_id)))
+                    project_drs_output += \
+                        str(project_id) + ',' + \
+                        str(dr_id) + '\n'
+                    project_num_drs += 1
+
+            # Get the list of project members
+            if 'members' in project_details:
+                for member in project_details['members']:
+                    # Get the member username and ID
+                    try:
+                        member_username = member['username']
+                        member_id = int(member['id'])
+                    except (KeyError, ValueError):
+                        _, ex, trace = sys.exc_info()
+                        msg = '{n}: Unable to get id or username from member data: {d}\n{e}'.format(
+                            n=ex.__class__.__name__, d=str(member), e=str(ex))
+                        raise BartError, msg, trace
+
+                    log.info('Found project member [{i}]: {u}'.format(i=str(member_id), u=member_username))
+                    project_members_output += str(project_id) + ',' + member_username + ',' + str(member_id) + '\n'
+
+            # Build the project output
+            project_details_output += \
+                str(project_id) + ',' + \
+                project_name + ',' + \
+                project_exp_date_time + ',' + \
+                project_max_cpus + ',' + \
+                project_max_gpus + ',' + \
+                project_max_ram + ',' + \
+                project_max_vms + ',' + \
+                project_max_storage + ',' + \
+                project_asset_bundle_enabled + ',' + \
+                project_max_users + ',' + \
+                str(project_member_count) + ',' + \
+                str(project_num_vrs) + ',' + \
+                str(project_num_drs) + '\n'
+
+        # Write the output files
+        with open(otto_log_file, 'w') as f:
+            f.write(config_props_output)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def list_projects_in_virtualization_realm(self, vr_id):
         """Queries CONS3RT for a list of projects in the virtualization realm
@@ -473,7 +742,8 @@ class Bart:
 
         # Ensure status is valid
         if not isinstance(search_type, basestring):
-            raise BartError('Arg search_type must be a string, found type: {t}'.format(t=search_type.__class__.__name__))
+            raise BartError('Arg search_type must be a string, found type: {t}'.format(
+                t=search_type.__class__.__name__))
 
         valid_search_type = ['SEARCH_ACTIVE', 'SEARCH_ALL', 'SEARCH_AVAILABLE', 'SEARCH_COMPOSING',
                              'SEARCH_DECOMPOSING', 'SEARCH_INACTIVE', 'SEARCH_PROCESSING', 'SEARCH_SCHEDULED',
@@ -607,7 +877,19 @@ class Bart:
         self.cons3rt_client.add_cloud_admin(cloud_id=cloud_id, username=self.user.username)
         log.info('Admin ' + self.user.username + ' added to cloud ' + str(cloud_id))
 
-        project_id = self.cons3rt_client.get_project_id(project_name=self.user.project_name)
+        # Attempt to get the list of project IDs
+        try:
+            project_ids = self.get_project_id(project_name=self.user.project_name)
+        except BartError:
+            _, ex, trace = sys.exc_info()
+            msg = 'There was a problem finding a project ID for project: {n}'.format(n=self.user.project_name)
+            raise BartError, msg, trace
+
+        if len(project_ids) != 1:
+            raise BartError('Found more than one project ID matching name [{n}]: {i}'.format(
+                n=self.user.project_name, i=','.join(project_ids)))
+
+        project_id = project_ids[0]
         log.info('Project id of default project: ' + str(project_id))
 
         vr_name = self.virtrealm
@@ -675,7 +957,7 @@ class Bart:
         self.cons3rt_client.add_cloud_admin(cloud_id=cloud_id, username=self.user.username)
         log.info('Admin ' + self.user.username + ' added to cloud ' + str(cloud_id))
 
-        project_id = self.cons3rt_client.get_project_id(project_name=self.user.project_name)
+        project_id = self.get_project_id(project_name=self.user.project_name)
         log.info('Project id of default project: ' + str(project_id))
 
         vr_id = None
@@ -793,7 +1075,7 @@ class Bart:
 
         log.info('Listing all active deployment runs in virtualization realm [ ' + str(vr_id) + ' ]')
 
-        drs = self.cons3rt_client.list_deployment_runs_in_virtualization_realm(vr_id=vr_id, status='SEARCH_ACTIVE')
+        drs = self.cons3rt_client.list_deployment_runs_in_virtualization_realm(vr_id=vr_id, search_type='SEARCH_ACTIVE')
         if not drs:
             log.info('    No Active deployment runs found')
         else:
@@ -806,7 +1088,7 @@ class Bart:
             not_done = True
             while not_done:
                 drs = self.cons3rt_client.list_deployment_runs_in_virtualization_realm(
-                    vr_id=vr_id, status='SEARCH_ACTIVE')
+                    vr_id=vr_id, search_type='SEARCH_ACTIVE')
                 if not drs:
                     not_done = True
                     log.info('    Deployment runs in active state(s) still exist in virtualization realm [ ' +
@@ -819,7 +1101,7 @@ class Bart:
 
         log.info('Deleting deployment runs.')
 
-        drs = self.cons3rt_client.list_deployment_runs_in_virtualization_realm(vr_id=vr_id, status='SEARCH_ALL')
+        drs = self.cons3rt_client.list_deployment_runs_in_virtualization_realm(vr_id=vr_id, search_type='SEARCH_ALL')
         if not drs:
             log.info('    No Deployment runs found')
         else:
@@ -888,7 +1170,7 @@ class Bart:
 
         log.info('Listing all active deployment runs in virtualization realm [ ' + str(vr_id) + ' ]')
 
-        drs = self.cons3rt_client.list_deployment_runs_in_virtualization_realm(vr_id=vr_id, status='SEARCH_ACTIVE')
+        drs = self.cons3rt_client.list_deployment_runs_in_virtualization_realm(vr_id=vr_id, search_type='SEARCH_ACTIVE')
         if not drs:
             log.info('    No Active deployment runs found')
         else:
@@ -901,7 +1183,7 @@ class Bart:
             not_done = True
             while not_done:
                 drs = self.cons3rt_client.list_deployment_runs_in_virtualization_realm(
-                    vr_id=vr_id, status='SEARCH_ACTIVE')
+                    vr_id=vr_id, search_type='SEARCH_ACTIVE')
                 if not drs:
                     not_done = True
                     log.info('    Deployment runs in active state(s) still exist in virtualization realm [ ' +
@@ -914,7 +1196,7 @@ class Bart:
 
         log.info('Deleting deployment runs.')
 
-        drs = self.cons3rt_client.list_deployment_runs_in_virtualization_realm(vr_id=vr_id, status='SEARCH_ALL')
+        drs = self.cons3rt_client.list_deployment_runs_in_virtualization_realm(vr_id=vr_id, search_type='SEARCH_ALL')
         if not drs:
             log.info('    No Deployment runs found')
         else:
@@ -1393,7 +1675,7 @@ class Bart:
             msg = '{n}: Unable to launch deployment run: {f}\n{e}'.format(
                 n=ex.__class__.__name__, f=json_file, e=str(ex))
             raise BartError, msg, trace
-        log.info('Successfully ;aunched deployment run ID {i} from file: {f}'.format(i=dr_id, f=json_file))
+        log.info('Successfully launched deployment run ID {i} from file: {f}'.format(i=dr_id, f=json_file))
         return dr_id
 
     def delete_inactive_runs_in_virtualization_realm(self, vr_id):
