@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 import logging
 import sys
@@ -6,7 +6,7 @@ import sys
 from requests_toolbelt import MultipartEncoder
 
 import requests
-from requests.exceptions import RequestException
+from requests.exceptions import RequestException, SSLError
 
 from pycons3rt.logify import Logify
 
@@ -87,6 +87,11 @@ class Client:
             response = requests.get(url, headers=headers, verify=False, cert=rest_user.cert_file_path)
         except RequestException as ex:
             raise Cons3rtClientError(str(ex))
+        except SSLError:
+            _, ex, trace = sys.exc_info()
+            msg = '{n}: There was an SSL error making an HTTP GET to URL: {u}\n{e}'.format(
+                n=ex.__class__.__name__, u=url, e=str(ex))
+            raise Cons3rtClientError, msg, trace
         return response
 
     def http_delete(self, rest_user, target, content=None, keep_alive=False):
@@ -107,6 +112,11 @@ class Client:
                 response = requests.delete(url, headers=headers, data=content, verify=False, cert=rest_user.cert_file_path)
         except RequestException as ex:
             raise Cons3rtClientError(str(ex))
+        except SSLError:
+            _, ex, trace = sys.exc_info()
+            msg = '{n}: There was an SSL error making an HTTP GET to URL: {u}\n{e}'.format(
+                n=ex.__class__.__name__, u=url, e=str(ex))
+            raise Cons3rtClientError, msg, trace
         return response
 
     def http_post(self, rest_user, target, content_file=None, content_type='application/json'):
@@ -145,6 +155,11 @@ class Client:
                 msg = '{n}: There was a problem making an HTTP post to URL: {u}\n{e}'.format(
                         n=ex.__class__.__name__, u=url, e=str(ex))
                 raise Cons3rtClientError, msg, trace
+            except SSLError:
+                _, ex, trace = sys.exc_info()
+                msg = '{n}: There was an SSL error making an HTTP POST to URL: {u}\n{e}'.format(
+                    n=ex.__class__.__name__, u=url, e=str(ex))
+                raise Cons3rtClientError, msg, trace
             except Exception:
                 _, ex, trace = sys.exc_info()
                 msg = '{n}: Generic error caught making an HTTP post to URL: {u}\n{e}'.format(
@@ -167,6 +182,11 @@ class Client:
                 except RequestException:
                     _, ex, trace = sys.exc_info()
                     msg = '{n}: There was a problem making an HTTP post to URL: {u}\n{e}'.format(
+                        n=ex.__class__.__name__, u=url, e=str(ex))
+                    raise Cons3rtClientError, msg, trace
+                except SSLError:
+                    _, ex, trace = sys.exc_info()
+                    msg = '{n}: There was an SSL error making an HTTP POST to URL: {u}\n{e}'.format(
                         n=ex.__class__.__name__, u=url, e=str(ex))
                     raise Cons3rtClientError, msg, trace
                 except Exception:
@@ -212,6 +232,11 @@ class Client:
                 msg = '{n}: There was a problem making an HTTP put to URL: {u}\n{e}'.format(
                         n=ex.__class__.__name__, u=url, e=str(ex))
                 raise Cons3rtClientError, msg, trace
+            except SSLError:
+                _, ex, trace = sys.exc_info()
+                msg = '{n}: There was an SSL error making an HTTP PUT to URL: {u}\n{e}'.format(
+                    n=ex.__class__.__name__, u=url, e=str(ex))
+                raise Cons3rtClientError, msg, trace
             except Exception:
                 _, ex, trace = sys.exc_info()
                 msg = '{n}: Generic error caught making an HTTP put to URL: {u}\n{e}'.format(
@@ -235,6 +260,11 @@ class Client:
                     _, ex, trace = sys.exc_info()
                     msg = '{n}: There was a problem making an HTTP put to URL: {u}\n{e}'.format(
                             n=ex.__class__.__name__, u=url, e=str(ex))
+                    raise Cons3rtClientError, msg, trace
+                except SSLError:
+                    _, ex, trace = sys.exc_info()
+                    msg = '{n}: There was an SSL error making an HTTP PUT to URL: {u}\n{e}'.format(
+                        n=ex.__class__.__name__, u=url, e=str(ex))
                     raise Cons3rtClientError, msg, trace
                 except Exception:
                     _, ex, trace = sys.exc_info()
@@ -291,6 +321,11 @@ class Client:
                 msg = '{n}: There was a problem making an HTTP PUT to URL: {u}\n{e}'.format(
                         n=ex.__class__.__name__, u=url, e=str(ex))
                 raise Cons3rtClientError, msg, trace
+            except SSLError:
+                _, ex, trace = sys.exc_info()
+                msg = '{n}: There was an SSL error making an HTTP PUT to URL: {u}\n{e}'.format(
+                    n=ex.__class__.__name__, u=url, e=str(ex))
+                raise Cons3rtClientError, msg, trace
         return response
 
     def http_post_multipart(self, rest_user, target, content_file):
@@ -339,6 +374,11 @@ class Client:
             except RequestException:
                 _, ex, trace = sys.exc_info()
                 msg = '{n}: There was a problem making an HTTP POST multipart to URL: {u}\n{e}'.format(
+                    n=ex.__class__.__name__, u=url, e=str(ex))
+                raise Cons3rtClientError, msg, trace
+            except SSLError:
+                _, ex, trace = sys.exc_info()
+                msg = '{n}: There was an SSL error making an HTTP POST to URL: {u}\n{e}'.format(
                     n=ex.__class__.__name__, u=url, e=str(ex))
                 raise Cons3rtClientError, msg, trace
         return response
