@@ -1939,3 +1939,4 @@ def make_asset_zip(asset_dir_path, destination_directory=None):
         msg = 'Unable to create zip file: {f}\n{e}'.format(f=zip_file_path, e=str(ex))
         raise AssetZipCreationError, msg, trace
     log.info('Successfully created asset zip file: {f}'.format(f=zip_file_path))
+    return zip_file_path
