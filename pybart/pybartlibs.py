@@ -19,6 +19,18 @@ class Cons3rtClientError(Exception):
     pass
 
 
+class Cons3rtAssetStructureError(Exception):
+    """Simple exception type for handling errors with CONS3RT asset structure
+    """
+    pass
+
+
+class AssetZipCreationError(Exception):
+    """Simple exception type for handling errors creating the asset zip file
+    """
+    pass
+
+
 class RestUser:
 
     def __init__(self, token, project=None, cert_file_path=None, username=None):
