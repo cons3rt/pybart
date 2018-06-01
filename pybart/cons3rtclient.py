@@ -328,6 +328,17 @@ class Cons3rtClient:
         teams = json.loads(content)
         return teams
 
+    def get_team_details(self, team_id):
+        """Queries CONS3RT for details by team ID
+
+        :param team_id: (int) ID of the team
+        :return: (dict) containing team details
+        """
+        response = self.http_client.http_get(rest_user=self.user, target='teams/{i}'.format(i=str(team_id)))
+        content = self.http_client.parse_response(response=response)
+        team_details = json.loads(content)
+        return team_details
+
     def list_scenarios(self):
         """Queries CONS3RT for a list of all scenarios
 

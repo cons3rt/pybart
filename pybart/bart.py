@@ -533,6 +533,31 @@ class Bart:
             raise BartError, msg, trace
         return teams
 
+    def get_team_details(self, team_id):
+        """Returns details for the specified team ID
+
+        :param (int) team_id: ID of the team to query
+        :return: (dict) details for the team ID
+        """
+        log = logging.getLogger(self.cls_logger + '.get_team_details')
+
+        # Ensure the vr_id is an int
+        if not isinstance(team_id, int):
+            try:
+                team_id = int(team_id)
+            except ValueError:
+                msg = 'team_id arg must be an Integer, found: {t}'.format(t=team_id.__class__.__name__)
+                raise BartError(msg)
+
+        log.debug('Attempting query team ID {i}'.format(i=str(team_id)))
+        try:
+            team_details = self.cons3rt_client.get_team_details(team_id=team_id)
+        except Cons3rtClientError:
+            _, ex, trace = sys.exc_info()
+            msg = 'Unable to query CONS3RT for details on team: {i}\n{e}'.format(i=str(team_id), e=str(ex))
+            raise BartError, msg, trace
+        return team_details
+
     def list_scenarios(self):
         """Query CONS3RT to return a list of Scenarios
 
