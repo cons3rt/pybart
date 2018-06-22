@@ -1658,6 +1658,33 @@ class Bart:
         else:
             log.info('Successfully deleted run ID: {i}'.format(i=str(dr_id)))
 
+    def get_virtualization_realm_details(self, vr_id):
+        """Queries for details of the virtualization realm ID
+
+        :param vr_id: (int) VR ID
+        :return: (dict) VR details
+        """
+        log = logging.getLogger(self.cls_logger + '.get_virtualization_realm_details')
+
+        # Ensure the vr_id is an int
+        if not isinstance(vr_id, int):
+            try:
+                vr_id = int(vr_id)
+            except ValueError:
+                msg = 'vr_id arg must be an Integer, found: {t}'.format(t=vr_id.__class__.__name__)
+                raise BartError(msg)
+
+        # Query for VR details
+        log.debug('Attempting query virtualization realm ID {i}'.format(i=str(vr_id)))
+        try:
+            vr_details = self.cons3rt_client.get_virtualization_realm_details(vr_id=vr_id)
+        except Cons3rtClientError:
+            _, ex, trace = sys.exc_info()
+            msg = 'Unable to query CONS3RT for details on virtualization realm: {i}\n{e}'.format(
+                i=str(vr_id), e=str(ex))
+            raise BartError, msg, trace
+        return vr_details
+
 
 def config_pybart(config_file_path, cert_file_path=None):
     """Configure pyBart using a config file and optional cert from the

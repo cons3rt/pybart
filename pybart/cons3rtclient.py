@@ -308,6 +308,18 @@ class Cons3rtClient:
         project_details = json.loads(content)
         return project_details
 
+    def get_virtualization_realm_details(self, vr_id):
+        """Queries CONS3RT for details by project ID
+
+        :param vr_id: (int) ID of the virtualization realm
+        :return: (dict) containing virtualization realm details
+        """
+        response = self.http_client.http_get(rest_user=self.user, target='virtualizationrealms/{i}'.format(
+            i=str(vr_id)))
+        content = self.http_client.parse_response(response=response)
+        vr_details = json.loads(content)
+        return vr_details
+
     def list_clouds(self):
         """Queries CONS3RT for a list of Clouds
 
