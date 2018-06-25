@@ -196,81 +196,67 @@ class Client:
                     raise Cons3rtClientError, msg, trace
         return response
 
-    def http_put(self, rest_user, target, content_file=None, content_type='application/json'):
+    def http_put(self, rest_user, target, content_data=None, content_file=None, content_type='application/json'):
         """Makes an HTTP Post to the requested URL
 
         :param rest_user: (RestUser) user info
         :param target: (str) ReST API target URL
-        :param content_file: (str) path to the content file
+        :param content_data: (str) body data
+        :param content_file: (str) path to the content file containing body data
         :param content_type: (str) Content-Type, default is application/json
         :return: (str) HTTP Response or None
         :raises: Cons3rtClientError
         """
         self.validate_target(target)
-
         url = self.base + target
-
         headers = self.get_auth_headers(rest_user=rest_user)
-        headers['Content-Type'] = '{t}'.format(t=content_type)
+        content = None
 
-        response = None
-
-        if content_file is None:
+        # Read data from the file if provided
+        if content_file:
             try:
-                response = requests.put(url, headers=headers, verify=False, cert=rest_user.cert_file_path)
-            except requests.ConnectionError:
+                with open(content_file, 'r') as f:
+                    content = f.read()
+            except (OSError, IOError):
                 _, ex, trace = sys.exc_info()
-                msg = '{n}: Connection error encountered making HTTP Put:\n{e}'.format(
-                        n=ex.__class__.__name__, e=str(ex))
-                raise Cons3rtClientError, msg, trace
-            except requests.Timeout:
-                _, ex, trace = sys.exc_info()
-                msg = '{n}: HTTP put to URL {u} timed out\n{e}'.format(n=ex.__class__.__name__, u=url, e=str(ex))
-                raise Cons3rtClientError, msg, trace
-            except RequestException:
-                _, ex, trace = sys.exc_info()
-                msg = '{n}: There was a problem making an HTTP put to URL: {u}\n{e}'.format(
-                        n=ex.__class__.__name__, u=url, e=str(ex))
-                raise Cons3rtClientError, msg, trace
-            except SSLError:
-                _, ex, trace = sys.exc_info()
-                msg = '{n}: There was an SSL error making an HTTP PUT to URL: {u}\n{e}'.format(
-                    n=ex.__class__.__name__, u=url, e=str(ex))
-                raise Cons3rtClientError, msg, trace
-            except Exception:
-                _, ex, trace = sys.exc_info()
-                msg = '{n}: Generic error caught making an HTTP put to URL: {u}\n{e}'.format(
-                        n=ex.__class__.__name__, u=url, e=str(ex))
-                raise Cons3rtClientError, msg, trace
-        else:
-            with open(content_file, 'r') as f:
-                x = f.read()
-                try:
-                    response = requests.put(url, headers=headers, data=x, verify=False, cert=rest_user.cert_file_path)
-                except requests.ConnectionError:
-                    _, ex, trace = sys.exc_info()
-                    msg = '{n}: Connection error encountered making HTTP Put:\n{e}'.format(
-                            n=ex.__class__.__name__, e=str(ex))
-                    raise Cons3rtClientError, msg, trace
-                except requests.Timeout:
-                    _, ex, trace = sys.exc_info()
-                    msg = '{n}: HTTP put to URL {u} timed out\n{e}'.format(n=ex.__class__.__name__, u=url, e=str(ex))
-                    raise Cons3rtClientError, msg, trace
-                except RequestException:
-                    _, ex, trace = sys.exc_info()
-                    msg = '{n}: There was a problem making an HTTP put to URL: {u}\n{e}'.format(
-                            n=ex.__class__.__name__, u=url, e=str(ex))
-                    raise Cons3rtClientError, msg, trace
-                except SSLError:
-                    _, ex, trace = sys.exc_info()
-                    msg = '{n}: There was an SSL error making an HTTP PUT to URL: {u}\n{e}'.format(
-                        n=ex.__class__.__name__, u=url, e=str(ex))
-                    raise Cons3rtClientError, msg, trace
-                except Exception:
-                    _, ex, trace = sys.exc_info()
-                    msg = '{n}: Generic error caught making an HTTP put to URL: {u}\n{e}'.format(
-                            n=ex.__class__.__name__, u=url, e=str(ex))
-                    raise Cons3rtClientError, msg, trace
+                msg = '{n}: Unable to read contents of file: {f}\n{e}'.format(
+                    n=ex.__class__.__name__, f=content_file, e=str(ex))
+                raise Cons3rtClientError,msg, trace
+        # Otherwise use data provided as content
+        elif content_data:
+            content = content_data
+
+        # Add content type if content was provided
+        if content:
+            headers['Content-Type'] = '{t}'.format(t=content_type)
+
+        # Make the put request
+        try:
+            response = requests.put(url, headers=headers, data=content, verify=False, cert=rest_user.cert_file_path)
+        except SSLError:
+            _, ex, trace = sys.exc_info()
+            msg = '{n}: There was an SSL error making an HTTP PUT to URL: {u}\n{e}'.format(
+                n=ex.__class__.__name__, u=url, e=str(ex))
+            raise Cons3rtClientError, msg, trace
+        except requests.ConnectionError:
+            _, ex, trace = sys.exc_info()
+            msg = '{n}: Connection error encountered making HTTP Put:\n{e}'.format(
+                n=ex.__class__.__name__, e=str(ex))
+            raise Cons3rtClientError, msg, trace
+        except requests.Timeout:
+            _, ex, trace = sys.exc_info()
+            msg = '{n}: HTTP put to URL {u} timed out\n{e}'.format(n=ex.__class__.__name__, u=url, e=str(ex))
+            raise Cons3rtClientError, msg, trace
+        except RequestException:
+            _, ex, trace = sys.exc_info()
+            msg = '{n}: There was a problem making an HTTP put to URL: {u}\n{e}'.format(
+                n=ex.__class__.__name__, u=url, e=str(ex))
+            raise Cons3rtClientError, msg, trace
+        except Exception:
+            _, ex, trace = sys.exc_info()
+            msg = '{n}: Generic error caught making an HTTP put to URL: {u}\n{e}'.format(
+                n=ex.__class__.__name__, u=url, e=str(ex))
+            raise Cons3rtClientError, msg, trace
         return response
 
     def http_put_multipart(self, rest_user, target, content_file):

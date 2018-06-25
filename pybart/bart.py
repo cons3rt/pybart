@@ -1512,6 +1512,8 @@ class Bart:
     def launch_deployment_run_from_json(self, deployment_id, json_file):
         """Launches a deployment run using options provided in a JSON file
 
+        :param deployment_id: (int) ID of the deployment to launch
+        :param json_file: (str) path to JSON file containing data for deployment run options
         :return: (int) deployment run ID
         :raises: BartError
         """
@@ -1522,22 +1524,30 @@ class Bart:
             try:
                 deployment_id = int(deployment_id)
             except ValueError:
-                msg = 'deployment_id arg must be an Integer, found: {t}'.format(t=deployment_id.__class__.__name__)
-                raise BartError(msg)
+                raise BartError('deployment_id arg must be an Integer, found: {t}'.format(
+                    t=deployment_id.__class__.__name__))
 
         # Ensure the json_file arg is a string
         if not isinstance(json_file, basestring):
-            msg = 'The json_file arg must be a string'
-            raise BartError(msg)
+            raise BartError('The json_file arg must be a string')
 
         # Ensure the JSON file exists
         if not os.path.isfile(json_file):
-            msg = 'JSON file not found: {f}'.format(f=json_file)
-            raise BartError(msg)
+            raise BartError('JSON file not found: {f}'.format(f=json_file))
 
-        # Attempt to create the team
+        # Read JSON
         try:
-            dr_id = self.cons3rt_client.launch_deployment_run(deployment_id=deployment_id, json_file=json_file)
+            with open(json_file, 'r') as f:
+                json_content = f.read()
+        except (OSError, IOError):
+            _, ex, trace = sys.exc_info()
+            msg = '{n}: Unable to read contents of file: {f}\n{e}'.format(
+                n=ex.__class__.__name__, f=json_file, e=str(ex))
+            raise BartError, msg, trace
+
+        # Attempt to run the deployment
+        try:
+            dr_id = self.cons3rt_client.run_deployment(deployment_id=deployment_id, json_content=json_content)
         except Cons3rtClientError:
             _, ex, trace = sys.exc_info()
             msg = '{n}: Unable to launch deployment run: {f}\n{e}'.format(
@@ -1545,6 +1555,48 @@ class Bart:
             raise BartError, msg, trace
         log.info('Successfully launched deployment run ID {i} from file: {f}'.format(i=dr_id, f=json_file))
         return dr_id
+
+    def run_deployment(self, deployment_id, run_options):
+        """Launches a deployment using provided data
+
+        :param deployment_id: (int) ID of the deployment to launch
+        :param run_options: (dict) data for deployment run options
+        :return (int) deployment run ID
+        :raises BartError
+        """
+        log = logging.getLogger(self.cls_logger + '.launch_deployment_run')
+
+        # Ensure the deployment_id is an int
+        if not isinstance(deployment_id, int):
+            try:
+                deployment_id = int(deployment_id)
+            except ValueError:
+                raise BartError('deployment_id arg must be an Integer, found: {t}'.format(
+                    t=deployment_id.__class__.__name__))
+
+        # Ensure the run_options is a dict
+        if not isinstance(run_options, dict):
+            raise BartError('run_options arg must be a dict, found: {t}'.format(t=run_options.__class__.__name__))
+
+        # Create JSON content
+        try:
+            json_content = json.dumps(run_options)
+        except SyntaxError:
+            _, ex, trace = sys.exc_info()
+            msg = '{n}: There was a problem convertify data to JSON: {d}\n{e}'.format(
+                n=ex.__class__.__name__, d=str(run_options), e=str(ex))
+            raise BartError, msg, trace
+
+        # Attempt to run the deployment
+        try:
+            dr_id = self.cons3rt_client.run_deployment(deployment_id=deployment_id, json_content=json_content)
+        except Cons3rtClientError:
+            _, ex, trace = sys.exc_info()
+            msg = '{n}: Unable to launch deployment run ID: {i}\n{e}'.format(
+                n=ex.__class__.__name__, i=str(deployment_id), e=str(ex))
+            raise BartError, msg, trace
+        log.info('Successfully launched deployment ID {d} as deployment run ID: {i}'.format(
+            i=str(dr_id), d=str(deployment_id)))
 
     def delete_inactive_runs_in_virtualization_realm(self, vr_id):
         """Deletes all inactive runs in a virtualization realm

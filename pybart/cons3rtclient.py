@@ -470,11 +470,11 @@ class Cons3rtClient:
             raise Cons3rtClientError, msg, trace
         return result
 
-    def launch_deployment_run(self, deployment_id, json_file):
+    def run_deployment(self, deployment_id, json_content):
         response = self.http_client.http_put(
             rest_user=self.user,
             target='deployments/{i}/execute'.format(i=deployment_id),
-            content_file=json_file)
+            content_data=json_content)
         try:
             dr_id = self.http_client.parse_response(response=response)
         except Cons3rtClientError:
