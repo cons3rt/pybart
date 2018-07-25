@@ -1,7 +1,9 @@
 build
 venv
+dist
 .idea
 .project
+*egg-info*
 *.iml
 pybart/*.pyc
 pybart/*.pyo
