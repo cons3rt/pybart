@@ -1,3 +1,2 @@
 requests
 requests_toolbelt
-pycons3rt==0.0.2
