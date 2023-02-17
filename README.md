@@ -1,5 +1,9 @@
 # pybart Python Library for CONS3RT ReST Queries
 
+# DEPRECATED
+
+## This project has been deprecated, please use cons3rt-python-sdk or pycons3rt3
+
 Features
 --------
 
